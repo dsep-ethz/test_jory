@@ -16,7 +16,7 @@ execute:
 ---
 
 ## Today's destination
-
+TESTING
 > **A note before we begin:** Most coding exercises in this course will be
 > messier and much more open ended than this one. This activity is a quick refresher for
 > students with coding experience and an introduction for students who have
