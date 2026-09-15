@@ -1,0 +1,393 @@
+---
+title: "Coding refresher: R and GitHub"
+subtitle: "Data Science for Environmental Policy"
+author: "DSEP"
+format:
+  html:
+    toc: true
+    toc-location: left
+    number-sections: true
+    theme: flatly
+    embed-resources: true
+execute:
+  echo: true
+  message: false
+  warning: false
+---
+
+## Today's destination
+
+> **A note before we begin:** Most coding exercises in this course will be
+> messier and much more open ended than this one. This activity is a quick refresher for
+> students with coding experience and an introduction for students who have
+> not coded much (or at all). Please complete it without an LLM or AI coding assistant.
+> We will use those tools throughout the course; today is about being sure you
+> can read, write, and troubleshoot the basic building blocks!
+
+By the end of this activity, you will be able to:
+
+- explain the difference between R, an R package, and an R project;
+- create and inspect objects, vectors, and data frames;
+- filter, summarize, and plot environmental data;
+- write and use a small function; and
+- save, commit, and push your work to GitHub.
+
+There is no expectation that you remember every command. The goal is to get
+comfortable reading code, changing it, running it, and checking the results.
+
+## 1. Open the project
+
+Work in the copy of this repository provided by the course. Open the whole
+`coding-intro` project in RStudio, either locally or through a GitHub Codespace,
+rather than opening only this file. This makes the repository root your working
+directory and gives both setups the same RStudio workflow.
+
+Check where R is currently working:
+
+```{r working-directory}
+getwd()
+list.files()
+```
+
+Avoid putting personal absolute paths such as
+`/Users/your-name/Desktop/...` in shared code. Project-relative paths make an
+analysis easier for someone else to reproduce.
+
+## 2. R and packages
+
+**R** is the programming language. **Packages** are collections of functions,
+data, and documentation that extend R. For example, `ggplot2` provides tools
+for plotting and `dplyr` provides tools for transforming tabular data.
+
+Install a package once on a computer:
+
+```{r install-example, eval=FALSE}
+install.packages("ggplot2")
+```
+
+Load it each time you start a new R session and need it:
+
+```{r packages}
+library(dplyr)
+library(ggplot2)
+```
+
+Use `?function_name` or `help("function_name")` when you need documentation.
+
+```{r help-example, eval=FALSE}
+?mean
+help("filter", package = "dplyr")
+```
+
+> **Check:** Why should `install.packages()` usually not appear in an analysis
+> script that you run repeatedly?
+
+## 3. Objects and vectors
+
+R stores values in **objects**. The assignment operator `<-` reads as "gets."
+
+```{r objects}
+policy_target <- 15
+observed_reduction <- 12.4
+target_met <- observed_reduction >= policy_target
+
+policy_target
+target_met
+```
+
+A **vector** stores values of the same basic type. Many R operations are
+vectorized: they apply to every value without an explicit loop.
+
+```{r vectors}
+annual_emissions <- c(42.1, 40.8, 39.5, 37.9, 36.4)
+years <- 2021:2025
+
+annual_emissions
+mean(annual_emissions)
+annual_emissions - min(annual_emissions)
+```
+
+Try these in the Console first, then put your final code in the chunk below.
+
+```{r vectors-practice, eval=FALSE}
+# 1. Create a vector named pm25 with the values 18, 15, 13, 11, and 9.
+# 2. Calculate its median.
+# 3. Test which values are above the WHO annual guideline of 5 micrograms/m3.
+```
+
+## 4. Data frames
+
+A **data frame** is a rectangular table. Columns are variables and rows are
+observations. We will use R's built-in `airquality` data, which contains daily
+air-quality measurements from New York in 1973.
+
+```{r inspect-data}
+air <- airquality
+
+head(air)
+glimpse(air)
+summary(air)
+```
+
+Missing observations are represented by `NA`. Ask explicitly whether a value
+is missing with `is.na()`.
+
+```{r missing-data}
+sum(is.na(air$Ozone))
+mean(air$Ozone, na.rm = TRUE)
+```
+
+> **Discuss:** Silently dropping missing observations can change a policy
+> conclusion. What would you want to know about why ozone measurements are
+> missing before interpreting the mean?
+
+## 5. Transform data with dplyr
+
+The pipe `|>` passes the result on its left into the next function. Read the
+following code from top to bottom: start with `air`, keep complete ozone
+measurements, add readable month labels, group by month, and calculate summary
+statistics.
+
+```{r summarize-data}
+monthly_air <- air |>
+  filter(!is.na(Ozone)) |>
+  mutate(month = factor(
+    Month,
+    levels = 5:9,
+    labels = c("May", "June", "July", "August", "September")
+  )) |>
+  group_by(month) |>
+  summarize(
+    days_observed = n(),
+    mean_ozone = mean(Ozone),
+    max_ozone = max(Ozone),
+    .groups = "drop"
+  )
+
+monthly_air
+```
+
+Now modify the pipeline yourself.
+
+```{r transform-practice, eval=FALSE}
+# 1. Start with air.
+# 2. Keep rows where Temp is at least 80 degrees Fahrenheit.
+# 3. Group by Month.
+# 4. Calculate the number of days and mean Wind for each month.
+# 5. Store the result as warm_days.
+```
+
+## 6. Make a plot
+
+`ggplot2` builds a figure in layers. The data and aesthetic mapping define the
+foundation; geometries such as points or columns determine how values appear.
+
+```{r plot, fig.alt="Column chart of mean ozone by month from May to September. July and August have the highest means."}
+ggplot(monthly_air, aes(x = month, y = mean_ozone)) +
+  geom_col(fill = "#2f6f4e") +
+  labs(
+    title = "Average observed ozone was highest in midsummer",
+    subtitle = "New York air-quality observations, 1973",
+    x = NULL,
+    y = "Mean ozone (ppb)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+> **Interpret:** Write one sentence describing what the figure shows and one
+> sentence naming a limitation. Remember that these are observations from one
+> place and year, not evidence that the month caused the ozone level.
+
+## 7. Write a function
+
+A function packages a repeatable operation. This function converts Fahrenheit
+to Celsius:
+
+```{r functions}
+fahrenheit_to_celsius <- function(temperature_f) {
+  (temperature_f - 32) * 5 / 9
+}
+
+fahrenheit_to_celsius(80)
+fahrenheit_to_celsius(air$Temp[1:5])
+```
+
+```{r function-practice, eval=FALSE}
+# Write percent_change(old_value, new_value), then use it to calculate the
+# percentage change in annual_emissions from 2021 to 2025.
+```
+
+## 8. Read errors as information
+
+Errors are part of programming. Read from the final line upward and check:
+
+1. Did I spell every object and function name correctly?
+2. Did I close every quote and parenthesis?
+3. Did I load the package that contains the function?
+4. Is the object the type or shape the function expects?
+
+Run this code, read the error, and repair it:
+
+```{r error-practice, eval=FALSE}
+mean(annual_emission)
+```
+
+## 9. Introduction to Git and GitHub
+
+**Git** records the history of a project on your computer. **GitHub** stores a
+copy of that project online so you can back it up, share it, and collaborate.
+A project tracked by Git is called a **repository** (or **repo**).
+
+Four actions form the basic workflow:
+
+- **Pull** downloads commits from GitHub to your copy of the repository.
+- **Stage** selects the changed files that will go into your next snapshot.
+- **Commit** records the staged changes with a short description.
+- **Push** uploads your local commits to GitHub.
+
+Saving a file does not commit it, and committing does not push it. A commit
+stays on your computer or in your Codespace until you push it.
+
+### Make and inspect a change
+
+Add your name below, then save this file:
+
+**Completed by:** _add your name here_
+
+### Commit and push from the terminal
+
+Open RStudio's terminal with **Tools > Terminal > New Terminal**. Run one
+command at a time and inspect its output before continuing:
+
+```{bash git-workflow, eval=FALSE}
+# Download any commits that are already on GitHub.
+git pull
+
+# List the files you have changed.
+git status
+
+# Inspect the exact lines you changed.
+git diff
+
+# Stage this workbook for the next commit.
+git add coding-intro.qmd
+
+# Confirm what is staged.
+git status
+git diff --staged
+
+# Record the staged change in the repository history.
+git commit -m "Complete R coding refresher"
+
+# Upload the commit to GitHub.
+git push
+```
+
+After `git push` finishes, open the repository on GitHub and confirm that your
+name and commit appear. If Git asks you to sign in, follow the browser prompt
+and authorize GitHub Codespaces or RStudio.
+
+Do not commit passwords, access tokens, private data, or large generated files.
+Before pushing, use `git status` and `git diff --staged` to verify exactly what
+will be shared.
+
+### Your first push
+
+Complete this checklist before moving on:
+
+- [ ] I added my name and completed at least one practice chunk.
+- [ ] I used `git diff` to review my changes.
+- [ ] I staged `coding-intro.qmd` with `git add`.
+- [ ] I committed it with `git commit` and a descriptive message.
+- [ ] I pushed the commit with `git push`.
+- [ ] I found the commit and my changes on GitHub.
+
+For more practice, complete GitHub Skills'
+[Introduction to GitHub](https://github.com/skills/introduction-to-github). It
+is a free, guided exercise covering repositories, branches, commits, and pull
+requests.
+
+## 10. Exit check
+
+Answer these in your own words:
+
+1. What is the difference between installing and loading an R package?
+2. What does the pipe `|>` do?
+3. What does `NA` mean, and why does it matter?
+4. What is the difference between Git and GitHub?
+5. What question or concept should we revisit next class?
+
+## Solutions
+
+Open this section after attempting the exercises.
+
+<details>
+<summary>Show suggested code</summary>
+
+```{r solutions, eval=FALSE}
+pm25 <- c(18, 15, 13, 11, 9)
+median(pm25)
+pm25 > 5
+
+warm_days <- air |>
+  filter(Temp >= 80) |>
+  group_by(Month) |>
+  summarize(
+    days = n(),
+    mean_wind = mean(Wind),
+    .groups = "drop"
+  )
+
+percent_change <- function(old_value, new_value) {
+  (new_value - old_value) / old_value * 100
+}
+
+percent_change(annual_emissions[1], annual_emissions[5])
+
+# The object is named annual_emissions, with a final "s".
+mean(annual_emissions)
+```
+
+</details>
+
+## 11. What if we used Python?
+
+This activity uses R, but we could have completed the same analysis in Python
+without major conceptual differences. Both languages let us store values,
+transform data, write functions, make figures, and work reproducibly. The
+syntax and package names change, but the analytical reasoning does not.
+
+For example, earlier we created a vector of annual emissions and calculated
+its mean and its distance from the minimum value:
+
+```{r python-comparison-r, eval=FALSE}
+annual_emissions <- c(42.1, 40.8, 39.5, 37.9, 36.4)
+
+mean(annual_emissions)
+annual_emissions - min(annual_emissions)
+```
+
+Here is the same work in Python using only built-in language features:
+
+```python
+annual_emissions = [42.1, 40.8, 39.5, 37.9, 36.4]
+
+mean_emissions = sum(annual_emissions) / len(annual_emissions)
+distance_from_minimum = [
+  emission - min(annual_emissions)
+  for emission in annual_emissions
+]
+
+print(mean_emissions)
+print(distance_from_minimum)
+```
+
+R uses `<-` for assignment and applies subtraction directly across a vector.
+Python uses `=` for assignment; here, a list comprehension applies the same
+subtraction to every value. In a typical Python data analysis, packages such as
+`pandas`, `numpy`, and `matplotlib` provide tools similar to `dplyr`, R vectors,
+and `ggplot2`.
+
+Git and GitHub do not depend on the programming language. The same `git pull`,
+`git add`, `git commit`, and `git push` commands work for a repository containing
+R, Python, or both.

@@ -1,0 +1,25 @@
+{
+  "name": "DSEP RStudio",
+  "image": "ghcr.io/rocker-org/devcontainer/r-ver:4",
+  "features": {
+    "ghcr.io/rocker-org/devcontainer-features/rstudio-server:0": {
+      "version": "stable",
+      "singleUser": true
+    },
+    "ghcr.io/rocker-org/devcontainer-features/quarto-cli:1": {
+      "version": "latest"
+    }
+  },
+  "forwardPorts": [8787],
+  "portsAttributes": {
+    "8787": {
+      "label": "RStudio IDE",
+      "onAutoForward": "notify",
+      "visibility": "private"
+    }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y pandoc && sudo Rscript -e \"install.packages(c('knitr','dplyr','ggplot2'), repos='https://cloud.r-project.org')\"",
+  "postAttachCommand": {
+    "rstudio-start": "rserver"
+  }
+}
